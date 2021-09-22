@@ -52,6 +52,7 @@ const MainPage: React.FC = () => {
   const [isPending, setIsPending] = useState<boolean>(false);
   const [isAdding, setIsAdding] = useState<boolean>(false);
   const [isDisabled, setIsDisabled] = useState<boolean>(true);
+  const [isReady, setIsReady] = useState<boolean>(false);
   const [isError, setIsError] = useState<
     Record<keyof Omit<UserData, 'name' | 'gender'>, boolean>
   >({
@@ -81,27 +82,43 @@ const MainPage: React.FC = () => {
   }, [isError, userData.surname, userData.email, isAdding]);
 
   useEffect(() => {
-    (async () => {
-      try {
-        setIsPending(true);
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-        const res: AxiosResponse = await axios.get('/api/email-validator.php', {
-          params: {
-            email: userData.email,
-          },
-        });
-        console.log(res.data);
-        setIsPending(false);
-      } catch (err: any) {
-        setIsPending(false);
-        console.log(err.response);
-      }
-    })();
+    if (isReady) {
+      (async () => {
+        try {
+          setIsPending(true);
+          const res: AxiosResponse = await axios.get(
+            '/api/email-validator.php',
+            {
+              params: {
+                email: userData.email,
+              },
+            }
+          );
+          setIsError({
+            ...isError,
+            email: !res.data.validation_status,
+          });
+          setIsPending(false);
+        } catch (err: any) {
+          setIsPending(false);
+          setModal({
+            isOpen: true,
+            isError: true,
+            title: 'Error',
+            content: {
+              errorContent: `Something went wrong, status: ${err.response.status} - ${err.response.statusText}`,
+            },
+          });
+        }
+      })();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userData.email]);
 
   const handleTextField = (
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
+    if (!isReady) setIsReady(true);
     setUserData({ ...userData, [event.target.id!]: event.target.value });
   };
 
@@ -131,6 +148,7 @@ const MainPage: React.FC = () => {
       gender: UserGender.female,
     });
     if (isGender) setIsGender(false);
+    setIsReady(false);
   };
 
   const sendDataHandling = async () => {
