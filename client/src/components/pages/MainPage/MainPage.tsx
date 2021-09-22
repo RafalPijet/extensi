@@ -52,7 +52,7 @@ const MainPage: React.FC = () => {
   const [isPending, setIsPending] = useState<boolean>(false);
   const [isAdding, setIsAdding] = useState<boolean>(false);
   const [isDisabled, setIsDisabled] = useState<boolean>(true);
-  const [isReady, setIsReady] = useState<boolean>(false);
+  const [isReady, setIsReady] = useState<boolean>(true);
   const [isError, setIsError] = useState<
     Record<keyof Omit<UserData, 'name' | 'gender'>, boolean>
   >({
@@ -82,7 +82,7 @@ const MainPage: React.FC = () => {
   }, [isError, userData.surname, userData.email, isAdding]);
 
   useEffect(() => {
-    if (isReady) {
+    if (isReady && userData.email.length !== 0) {
       (async () => {
         try {
           setIsPending(true);
@@ -112,6 +112,13 @@ const MainPage: React.FC = () => {
         }
       })();
     }
+    if (userData.email.length === 0) {
+      setIsReady(false);
+      setIsError({
+        ...isError,
+        email: false,
+      });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userData.email]);
 
@@ -119,7 +126,9 @@ const MainPage: React.FC = () => {
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     if (!isReady) setIsReady(true);
-    setUserData({ ...userData, [event.target.id!]: event.target.value });
+    if (!isPending) {
+      setUserData({ ...userData, [event.target.id!]: event.target.value });
+    }
   };
 
   const handleRadioBox = (event: React.ChangeEvent<HTMLInputElement>) => {
