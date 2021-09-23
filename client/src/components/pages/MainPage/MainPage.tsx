@@ -52,6 +52,7 @@ const MainPage: React.FC = () => {
   const [isPending, setIsPending] = useState<boolean>(false);
   const [isAdding, setIsAdding] = useState<boolean>(false);
   const [isDisabled, setIsDisabled] = useState<boolean>(true);
+  const [isValidated, setIsValidated] = useState<boolean>(true);
   const [isReady, setIsReady] = useState<boolean>(true);
   const [isError, setIsError] = useState<
     Record<keyof Omit<UserData, 'name' | 'gender'>, boolean>
@@ -66,9 +67,10 @@ const MainPage: React.FC = () => {
       ...isError,
       surname: userData.surname.length > 0 && userData.surname.length < 3,
       birthDate: calculateAge(userData.birthDate) < 18,
+      email: !isValidated,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userData]);
+  }, [userData.surname, userData.birthDate, isValidated]);
 
   useEffect(() => {
     setIsDisabled(
@@ -82,25 +84,18 @@ const MainPage: React.FC = () => {
   }, [isError, userData.surname, userData.email, isAdding]);
 
   useEffect(() => {
-    if (isReady && userData.email.length !== 0) {
+    if (isReady && userData.email.length > 0) {
       (async () => {
         try {
           setIsPending(true);
-          const res: AxiosResponse = await axios.get(
-            '/api/email-validator.php',
-            {
-              params: {
-                email: userData.email,
-              },
-            }
-          );
-          setIsError({
-            ...isError,
-            email: !res.data.validation_status,
+          let res: AxiosResponse = await axios.get('/api/email-validator.php', {
+            params: {
+              email: userData.email,
+            },
           });
+          setIsValidated(res.data.validation_status);
           setIsPending(false);
         } catch (err: any) {
-          setIsPending(false);
           setModal({
             isOpen: true,
             isError: true,
@@ -109,6 +104,7 @@ const MainPage: React.FC = () => {
               errorContent: `Something went wrong, status: ${err.response.status} - ${err.response.statusText}`,
             },
           });
+          setIsPending(false);
         }
       })();
     }
@@ -120,15 +116,13 @@ const MainPage: React.FC = () => {
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userData.email]);
+  }, [userData.email, isValidated]);
 
   const handleTextField = (
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     if (!isReady) setIsReady(true);
-    if (!isPending) {
-      setUserData({ ...userData, [event.target.id!]: event.target.value });
-    }
+    setUserData({ ...userData, [event.target.id!]: event.target.value });
   };
 
   const handleRadioBox = (event: React.ChangeEvent<HTMLInputElement>) => {
