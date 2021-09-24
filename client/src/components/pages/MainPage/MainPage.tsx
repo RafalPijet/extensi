@@ -54,6 +54,9 @@ const MainPage: React.FC = () => {
   const [isDisabled, setIsDisabled] = useState<boolean>(true);
   const [isValidated, setIsValidated] = useState<boolean>(true);
   const [isReady, setIsReady] = useState<boolean>(true);
+  const [isOpenGate, setIsOpenGate] = useState<boolean>(false);
+  const [requestQuantity, setRequestQuantity] = useState<number>(0);
+  const [enterQuantity, setEnterQuantity] = useState<number>(-1);
   const [isError, setIsError] = useState<
     Record<keyof Omit<UserData, 'name' | 'gender'>, boolean>
   >({
@@ -61,16 +64,6 @@ const MainPage: React.FC = () => {
     email: false,
     birthDate: false,
   });
-
-  useEffect(() => {
-    setIsError({
-      ...isError,
-      surname: userData.surname.length > 0 && userData.surname.length < 3,
-      birthDate: calculateAge(userData.birthDate) < 18,
-      email: !isValidated,
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userData.surname, userData.birthDate, isValidated]);
 
   useEffect(() => {
     setIsDisabled(
@@ -84,10 +77,12 @@ const MainPage: React.FC = () => {
   }, [isError, userData.surname, userData.email, isAdding]);
 
   useEffect(() => {
-    if (isReady && userData.email.length > 0) {
+    if (isReady && userData.email.length > 0 && !isOpenGate) {
       (async () => {
         try {
           setIsPending(true);
+          setIsOpenGate(true);
+          setRequestQuantity(requestQuantity + 1);
           let res: AxiosResponse = await axios.get('/api/email-validator.php', {
             params: {
               email: userData.email,
@@ -95,6 +90,9 @@ const MainPage: React.FC = () => {
           });
           setIsValidated(res.data.validation_status);
           setIsPending(false);
+          console.log(
+            `${enterQuantity} === ${requestQuantity}. State: ${userData.email} <--> ${res.data.email} ==> ${res.data.validation_status}`
+          );
         } catch (err: any) {
           setModal({
             isOpen: true,
@@ -114,14 +112,30 @@ const MainPage: React.FC = () => {
         ...isError,
         email: false,
       });
+      setEnterQuantity(-1);
+      setRequestQuantity(0);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userData.email, isValidated]);
+  }, [userData.email]);
+
+  useEffect(() => {
+    setIsError({
+      ...isError,
+      surname: userData.surname.length > 0 && userData.surname.length < 3,
+      birthDate: calculateAge(userData.birthDate) < 18,
+      email: !isValidated,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userData.surname, userData.birthDate, isValidated]);
 
   const handleTextField = (
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     if (!isReady) setIsReady(true);
+    if (event.target.id === 'email') {
+      setEnterQuantity(enterQuantity + 1);
+      setIsOpenGate(false);
+    }
     setUserData({ ...userData, [event.target.id!]: event.target.value });
   };
 
@@ -319,6 +333,15 @@ const MainPage: React.FC = () => {
                 fullWidth: true,
               }}
             />
+            <button
+              onClick={() =>
+                console.log(
+                  `isValidated: ${isValidated}; isOpenGate: ${isOpenGate}; ${enterQuantity} <--> ${requestQuantity} for ${userData.email}`
+                )
+              }
+            >
+              Check
+            </button>
             <RadioGroup
               value={userData.gender}
               onChange={handleRadioBox}
