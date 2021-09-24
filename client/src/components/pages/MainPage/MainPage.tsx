@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import axios, { AxiosResponse } from 'axios';
+import axios, {
+  AxiosResponse,
+  CancelTokenSource,
+  CancelTokenStatic,
+} from 'axios';
 import {
   Grid,
   Typography,
@@ -78,33 +82,46 @@ const MainPage: React.FC = () => {
 
   useEffect(() => {
     if (isReady && userData.email.length > 0 && !isOpenGate) {
-      (async () => {
+      const cancelToken: CancelTokenStatic = axios.CancelToken;
+      const source: CancelTokenSource = cancelToken.source();
+      const validation = async () => {
         try {
           setIsPending(true);
           setIsOpenGate(true);
           setRequestQuantity(requestQuantity + 1);
-          let res: AxiosResponse = await axios.get('/api/email-validator.php', {
-            params: {
-              email: userData.email,
-            },
-          });
+          const res: AxiosResponse = await axios.get(
+            `/api/email-validator.php`,
+            {
+              cancelToken: source.token,
+              params: {
+                email: userData.email,
+              },
+            }
+          );
           setIsValidated(res.data.validation_status);
           setIsPending(false);
           console.log(
             `${enterQuantity} === ${requestQuantity}. State: ${userData.email} <--> ${res.data.email} ==> ${res.data.validation_status}`
           );
         } catch (err: any) {
-          setModal({
-            isOpen: true,
-            isError: true,
-            title: 'Error',
-            content: {
-              errorContent: `Something went wrong, status: ${err.response.status} - ${err.response.statusText}`,
-            },
-          });
-          setIsPending(false);
+          if (isPending && isOpenGate) {
+            setModal({
+              isOpen: true,
+              isError: true,
+              title: 'Error',
+              content: {
+                errorContent: `Something went wrong, status: ${err.response.status} - ${err.response.statusText}`,
+              },
+            });
+            setIsPending(false);
+          }
         }
-      })();
+      };
+      validation();
+
+      return () => {
+        source.cancel();
+      };
     }
     if (userData.email.length === 0) {
       setIsReady(false);
@@ -333,15 +350,6 @@ const MainPage: React.FC = () => {
                 fullWidth: true,
               }}
             />
-            <button
-              onClick={() =>
-                console.log(
-                  `isValidated: ${isValidated}; isOpenGate: ${isOpenGate}; ${enterQuantity} <--> ${requestQuantity} for ${userData.email}`
-                )
-              }
-            >
-              Check
-            </button>
             <RadioGroup
               value={userData.gender}
               onChange={handleRadioBox}
